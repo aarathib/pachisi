@@ -9,6 +9,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
+
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -26,32 +27,135 @@ const addOutline = (object, geometry) => {
   scene.add(outline);
 };
 
-// 1. Create the main 15x15 white base grid
+// Create the main 15x15 white base grid
 const gridSize = 15;
-const gridGeometry = new THREE.PlaneGeometry(gridSize, gridSize);
-const gridMaterial = new THREE.MeshBasicMaterial({
-  color: 0xffffff, // White base
-  side: THREE.DoubleSide,
-});
-const grid = new THREE.Mesh(gridGeometry, gridMaterial);
-grid.rotation.x = -Math.PI / 2; // Rotate to lie flat on the x-z plane
-scene.add(grid);
-
-// 2. Add a black grid overlay using THREE.GridHelper
-const gridHelper = new THREE.GridHelper(gridSize, gridSize, 0x000000, 0x000000); // Black grid lines
-gridHelper.position.y = 0.01; // Elevate slightly above the base grid to avoid z-fighting
-scene.add(gridHelper);
-
-// Define colors for the four sections (green, blue, red, yellow)
-const colors = [0x00ff00, 0x0000ff, 0xff0000, 0xffff00];
 const sectionSize = 6;
 
-// 3. Create four sections positioned within the grid's 3x3 central area
+// Define colors for the four sections (green, blue, red, yellow)
+const baseColors = {
+  green: 0x00ff00,
+  blue: 0x0000ff,
+  red: 0xff0000,
+  yellow: 0xffff00, // Removed extra space here
+};
+const colors = ["green", "blue", "red", "yellow"];
+
+const gridColors = Array(gridSize)
+  .fill(null)
+  .map(() => Array(gridSize).fill(0xffffff));
+
+// Set up the cross-pattern paths
+for (let i = 1; i < gridSize / 2; i++) {
+  gridColors[7][i] = baseColors["blue"];
+  gridColors[7][gridSize - 1 - i] = baseColors["red"];
+  gridColors[i][7] = baseColors["yellow"];
+  gridColors[gridSize - 1 - i][7] = baseColors["green"];
+}
+
+gridColors[6][1] = baseColors["blue"];
+gridColors[13][6] = baseColors["green"];
+gridColors[8][13] = baseColors["red"];
+gridColors[1][8] = baseColors["yellow"];
+
+//  Generate the board using individual squares
+let cellSize = 1;
+let x = -7,
+  z = -7;
+for (let row = 0; row < gridSize; row++) {
+  x = -7;
+  for (let col = 0; col < gridSize; col++) {
+    const cellGeometry = new THREE.PlaneGeometry(cellSize, cellSize);
+    const cellMaterial = new THREE.MeshBasicMaterial({
+      color: gridColors[row][col],
+      side: THREE.DoubleSide,
+    });
+    const cell = new THREE.Mesh(cellGeometry, cellMaterial);
+    cell.rotation.x = -Math.PI / 2; // Rotate to lie flat on the x-z plane
+    cell.position.set(x, 0, z);
+    scene.add(cell);
+    addOutline(cell, cellGeometry);
+    x++;
+  }
+  z++;
+}
+
+const addMidTriangle = () => {
+  const centerSquareSize = 3;
+
+  const createTriangle = (base, center, color) => {
+    const shape = new THREE.Shape();
+
+    // Define the vertices of the triangle
+    shape.moveTo(center.x, center.y); // Center of the square
+    shape.lineTo(base[0].x, base[0].y); // First corner of the base
+    shape.lineTo(base[1].x, base[1].y); // Second corner of the base
+    shape.lineTo(center.x, center.y); // Back to the center
+
+    // Create geometry from the shape
+    const geometry = new THREE.ShapeGeometry(shape);
+    const material = new THREE.MeshBasicMaterial({
+      color,
+      side: THREE.DoubleSide,
+    });
+
+    // Create and return the mesh
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2; // Ensure it lies flat on the x-z plane
+    return mesh;
+  };
+
+  // Create and position each triangle within the central square
+  const halfSize = centerSquareSize / 2;
+  const center = { x: 0, y: 0 };
+
+  // Define the base vertices for each triangle relative to the center position
+  const bases = [
+    [
+      { x: -halfSize, y: halfSize },
+      { x: halfSize, y: halfSize },
+    ],
+    [
+      { x: halfSize, y: halfSize },
+      { x: halfSize, y: -halfSize },
+    ],
+    [
+      { x: halfSize, y: -halfSize },
+      { x: -halfSize, y: -halfSize },
+    ],
+    [
+      { x: -halfSize, y: -halfSize },
+      { x: -halfSize, y: halfSize },
+    ],
+  ];
+
+  // Create each triangle and add them to the scene
+  const triangle1 = createTriangle(bases[0], center, baseColors[colors[3]]);
+  triangle1.position.set(0, 0.05, 0); // Centered at (0, 0)
+  scene.add(triangle1);
+  addOutline(triangle1, triangle1.geometry);
+
+  const triangle2 = createTriangle(bases[1], center, baseColors[colors[2]]);
+  triangle2.position.set(0, 0.05, 0); // Centered at (0, 0)
+  scene.add(triangle2);
+  addOutline(triangle1, triangle2.geometry);
+
+  const triangle3 = createTriangle(bases[2], center, baseColors[colors[0]]);
+  triangle3.position.set(0, 0.05, 0); // Centered at (0, 0)
+  scene.add(triangle3);
+  addOutline(triangle1, triangle3.geometry);
+
+  const triangle4 = createTriangle(bases[3], center, baseColors[colors[1]]);
+  triangle4.position.set(0, 0.05, 0); // Centered at (0, 0)
+  scene.add(triangle4);
+  addOutline(triangle1, triangle4.geometry);
+};
+
+//  Create four sections positioned within the grid's 3x3 central area
 for (let i = 0; i < 4; i++) {
   // Create the main colored square sections
   const sectionGeometry = new THREE.PlaneGeometry(sectionSize, sectionSize);
   const sectionMaterial = new THREE.MeshBasicMaterial({
-    color: colors[i],
+    color: baseColors[colors[i]],
     side: THREE.DoubleSide,
   });
   const section = new THREE.Mesh(sectionGeometry, sectionMaterial);
@@ -88,11 +192,10 @@ for (let i = 0; i < 4; i++) {
   for (let j = 0; j < 4; j++) {
     const dotGeometry = new THREE.PlaneGeometry(1, 1);
     const dotMaterial = new THREE.MeshBasicMaterial({
-      color: colors[i],
+      color: baseColors[colors[i]],
       side: THREE.DoubleSide,
     });
     const dot = new THREE.Mesh(dotGeometry, dotMaterial);
-    // dot.position.set(section.position.x, 0.07, section.position.z); // Lift slightly above the board
 
     let offset = 0.75;
     dot.position.x =
@@ -107,7 +210,9 @@ for (let i = 0; i < 4; i++) {
   }
 }
 
-// 4. Set the camera to have a top-down view of the entire grid and board setup
+addMidTriangle();
+
+// Set the camera to have a top-down view of the entire grid and board setup
 camera.position.set(0, 10, 0); // Higher top-down position to view the full board
 camera.lookAt(0, 0, 0); // Look at the center of the grid
 
